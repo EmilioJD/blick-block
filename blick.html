@@ -35,6 +35,13 @@
     </p>
 
     <script>
+      function isMobileDevice() {
+        return (
+          typeof window.orientation !== "undefined" ||
+          navigator.userAgent.indexOf("IEMobile") !== -1
+        );
+      }
+
       const screen_width = 800;
       const screen_height = 600;
 
@@ -52,12 +59,66 @@
       let base_spawn_rate = 0.02;
 
       function setup() {
-        createCanvas(screen_width, screen_height);
+        if (isMobileDevice()) {
+          canvas_size = min(windowWidth, windowHeight) - 50;
+        } else {
+          canvas_size = 600;
+        }
+        createCanvas(canvas_size, canvas_size);
         square_pos = createVector(
           width / 2 - square_size / 2,
           height / 2 - square_size / 2
         );
         red_ball_threshold = random(1, projectiles_to_survive / 2);
+      }
+
+      let initial_touch_x, initial_touch_y;
+      let current_touch_x, current_touch_y;
+
+      function touchStarted() {
+        initial_touch_x = touchX;
+        initial_touch_y = touchY;
+        current_touch_x = touchX;
+        current_touch_y = touchY;
+        return false; // To prevent default browser behavior
+      }
+
+      function touchMoved() {
+        current_touch_x = touchX;
+        current_touch_y = touchY;
+        return false; // To prevent default browser behavior
+      }
+
+      function touchEnded() {
+        const move_threshold = 50;
+        const move_x = current_touch_x - initial_touch_x;
+        const move_y = current_touch_y - initial_touch_y;
+
+        if (abs(move_x) > abs(move_y)) {
+          if (abs(move_x) > move_threshold) {
+            if (move_x > 0) {
+              square_pos.x += 5;
+            } else {
+              square_pos.x -= 5;
+            }
+          }
+        } else {
+          if (abs(move_y) > move_threshold) {
+            if (move_y > 0) {
+              square_pos.y += 5;
+            } else {
+              square_pos.y -= 5;
+            }
+          }
+        }
+
+        // Reset touch positions
+        initial_touch_x = null;
+        initial_touch_y = null;
+        current_touch_x = null;
+        current_touch_y = null;
+
+        return false; // To prevent default browser behavior
       }
 
       function draw() {
@@ -75,6 +136,23 @@
         }
         if (keyIsDown(DOWN_ARROW)) {
           square_pos.y += 5;
+        }
+
+        // Handle swipe gestures
+        if (initial_touch_x !== null && current_touch_x !== null) {
+          const move_threshold = 50;
+          const move_x = current_touch_x - initial_touch_x;
+          const move_y = current_touch_y - initial_touch_y;
+
+          if (abs(move_x) > abs(move_y)) {
+            if (abs(move_x) > move_threshold) {
+              square_pos.x += move_x > 0 ? 5 : -5;
+            }
+          } else {
+            if (abs(move_y) > move_threshold) {
+              square_pos.y += move_y > 0 ? 5 : -5;
+            }
+          }
         }
 
         // Keep the square within bounds
