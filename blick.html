@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Projectiles Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #222;
+      }
+      canvas {
+        border: 1px solid #fff;
+        margin-top: 10px;
+      }
+      h1,
+      p {
+        color: #fff;
+        margin: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Blick Block</h1>
+    <p>
+      Avoid white squares, hit a red square to halve in size, try to get through
+      as many rounds as possible.
+    </p>
+
+    <script>
+      const screen_width = 800;
+      const screen_height = 600;
+
+      let square_size = 25;
+      let projectile_speed = 4;
+      let projectile_size = 5;
+
+      let square_pos;
+      let projectiles = [];
+      let rounds_survived = 0;
+      let projectiles_to_survive = 10;
+      let projectiles_dodged = 0;
+      let red_ball_spawned = false;
+      let red_ball_threshold;
+      let base_spawn_rate = 0.02;
+
+      function setup() {
+        createCanvas(screen_width, screen_height);
+        square_pos = createVector(
+          width / 2 - square_size / 2,
+          height / 2 - square_size / 2
+        );
+        red_ball_threshold = random(1, projectiles_to_survive / 2);
+      }
+
+      function draw() {
+        background(0);
+
+        // Handle arrow keys
+        if (keyIsDown(LEFT_ARROW)) {
+          square_pos.x -= 5;
+        }
+        if (keyIsDown(RIGHT_ARROW)) {
+          square_pos.x += 5;
+        }
+        if (keyIsDown(UP_ARROW)) {
+          square_pos.y -= 5;
+        }
+        if (keyIsDown(DOWN_ARROW)) {
+          square_pos.y += 5;
+        }
+
+        // Keep the square within bounds
+        square_pos.x = constrain(square_pos.x, 0, width - square_size);
+        square_pos.y = constrain(square_pos.y, 0, height - square_size);
+
+        // Draw square
+        fill(0, 255, 0);
+        rect(square_pos.x, square_pos.y, square_size, square_size);
+
+        // Move projectiles
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+          const projectile = projectiles[i];
+          projectile.pos.add(projectile.speed);
+
+          if (projectile.color === "RED") {
+            fill(255, 0, 0);
+          } else {
+            fill(255);
+          }
+          rect(
+            projectile.pos.x,
+            projectile.pos.y,
+            projectile_size,
+            projectile_size
+          );
+
+          // Check for collision
+          if (
+            projectile.pos.x < square_pos.x + square_size &&
+            projectile.pos.x + projectile_size > square_pos.x &&
+            projectile.pos.y < square_pos.y + square_size &&
+            projectile.pos.y + projectile_size > square_pos.y
+          ) {
+            if (projectile.color === "RED") {
+              square_size /= 2;
+            } else {
+              // Game over
+              noLoop();
+              textSize(32);
+              textAlign(CENTER, CENTER);
+              fill(255);
+              text("Game Over! Press Enter to restart", width / 2, height / 2);
+            }
+
+            projectiles.splice(i, 1);
+            projectiles_dodged++;
+          }
+          // Check for out-of-bounds projectiles
+          else if (
+            projectile.pos.x < 0 ||
+            projectile.pos.x > width ||
+            projectile.pos.y < 0 ||
+            projectile.pos.y > height
+          ) {
+            projectiles.splice(i, 1);
+            projectiles_dodged++;
+          }
+        }
+
+        // Check for round completion
+        if (projectiles_dodged >= projectiles_to_survive) {
+          rounds_survived++;
+          projectiles_to_survive += 5;
+          square_size *= 2;
+          projectile_speed += 1;
+          projectile_size += 1;
+          projectiles_dodged = 0;
+          red_ball_spawned = false;
+          red_ball_threshold = random(1, projectiles_to_survive / 2);
+
+          // Reset square position
+          square_pos = createVector(
+            width / 2 - square_size / 2,
+            height / 2 - square_size / 2
+          );
+
+          // Clear out projectiles
+          projectiles = [];
+        }
+
+        // Spawn projectiles
+        if (random() < base_spawn_rate + 0.01 * rounds_survived) {
+          const white_balls_spawned = projectiles.filter(
+            (p) => p.color === "WHITE"
+          ).length;
+
+          let projectile_color;
+          let pos, speed;
+          if (!red_ball_spawned && white_balls_spawned >= red_ball_threshold) {
+            projectile_color = "RED";
+            pos = spawn_projectile(true);
+            red_ball_spawned = true;
+          } else {
+            projectile_color = "WHITE";
+            pos = spawn_projectile();
+          }
+
+          speed = createVector(pos.speed.x, pos.speed.y);
+          projectiles.push({
+            pos: createVector(pos.x, pos.y),
+            speed,
+            color: projectile_color,
+          });
+        }
+
+        // Draw text
+        textSize(24);
+        textAlign(LEFT, TOP);
+        fill(255);
+        text(`Rounds: ${rounds_survived}`, 10, 10);
+      }
+
+      function spawn_projectile(is_red = false) {
+        const edge = floor(random(4));
+        const center = createVector(width / 2, height / 2);
+        let pos;
+
+        if (edge === 0) {
+          // Top edge
+          pos = createVector(random(0, width - projectile_size), 0);
+        } else if (edge === 1) {
+          // Right edge
+          pos = createVector(
+            width - projectile_size,
+            random(0, height - projectile_size)
+          );
+        } else if (edge === 2) {
+          // Bottom edge
+          pos = createVector(
+            random(0, width - projectile_size),
+            height - projectile_size
+          );
+        } else {
+          // Left edge
+          pos = createVector(0, random(0, height - projectile_size));
+        }
+
+        const direction = p5.Vector.sub(center, pos).normalize();
+        const speed = direction.copy().mult(projectile_speed);
+
+        if (!is_red) {
+          speed.add(createVector(random(-1, 1), random(-1, 1)));
+        }
+
+        return { x: pos.x, y: pos.y, speed: { x: speed.x, y: speed.y } };
+      }
+
+      function keyPressed() {
+        if (keyCode === ENTER && !isLooping()) {
+          square_size = 25; // Reset square size
+          projectiles = [];
+          rounds_survived = 0;
+          projectiles_to_survive = 10;
+          projectile_speed = 4; // Reset projectile speed
+          projectile_size = 5; // Reset projectile size
+          projectiles_dodged = 0;
+          red_ball_spawned = false;
+          red_ball_threshold = random(1, projectiles_to_survive / 2);
+          loop();
+        }
+      }
+    </script>
+  </body>
+</html>
